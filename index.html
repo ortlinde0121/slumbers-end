@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>沉眠的终结 | Slumber's End</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a1a; color: #cbcbcb;
+            font-family: "Noto Serif SC", "SimSun", serif;
+            min-height: 100vh; display: flex; justify-content: center;
+            align-items: center; line-height: 2; padding: 20px;
+        }
+        #game-container {
+            max-width: 680px; width: 100%; background: #121212;
+            border: 1px solid #2a2a2a; border-radius: 4px;
+            padding: 40px 36px; min-height: 480px; position: relative;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+            max-height: 90vh; overflow-y: auto;
+        }
+        #text-area { min-height: 300px; white-space: pre-wrap; }
+        #text-area p { margin-bottom: 16px; animation: fadeIn 0.6s ease-out; }
+        .ng-plus {
+            color: #b08080; font-style: italic;
+            border-left: 2px solid #5a3a3a; padding-left: 12px;
+            animation: fadeIn 1.2s ease-out;
+        }
+        .artifact-title {
+            color: #8a7a6a; letter-spacing: 2px; font-size: 13px;
+            border-bottom: 1px solid #3a3a3a; padding-bottom: 8px; margin-bottom: 16px;
+        }
+        .artifact-body { color: #b0a090; font-style: italic; }
+        .fragment-body { color: #b0a090; white-space: pre-wrap; }
+        .letter-salutation { color: #c0b0a0; margin-bottom: 16px; }
+        .letter-body {
+            color: #c0b0a0; white-space: pre-wrap;
+            text-indent: 2em; line-height: 2.2;
+        }
+        .letter-signature { text-align: right; color: #c0b0a0; margin-top: 24px; white-space: pre-wrap; }
+        .awakening { color: #c0c0c0; font-style: italic; text-align: center; margin-top: 24px; white-space: pre-wrap; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #choices-area { margin-top: 28px; display: flex; flex-direction: column; gap: 8px; }
+        #choices-area button {
+            background: transparent; border: 1px solid #4a4a4a; color: #cbcbcb;
+            padding: 10px 16px; text-align: left; font-size: 14px;
+            font-family: inherit; cursor: pointer; border-radius: 2px;
+            transition: all 0.2s; line-height: 1.6;
+        }
+        #choices-area button:hover {
+            background: #2a1a1a; border-color: #8b3a3a; color: #e0d0d0; padding-left: 20px;
+        }
+        #choices-area button:active { background: #3a1a1a; }
+        #choices-area button.small-btn { font-size: 12px; padding: 6px 12px; }
+        #choices-area button.fragment-btn { border-color: #5a4a3a; color: #b0a080; }
+        #choices-area button.fragment-btn:hover { border-color: #a08060; color: #d0c0a0; background: #1a1a10; }
+        #choices-area button.deep-btn { border-color: #6a5a4a; color: #b0a080; }
+        #choices-area button.deep-btn:hover { border-color: #a08060; color: #d0c0a0; background: #1a1a10; }
+        #continue-hint {
+            text-align: center; margin-top: 28px; color: #555;
+            font-size: 13px; cursor: pointer; user-select: none;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+        #title-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #121212; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            z-index: 10; cursor: pointer; transition: opacity 0.8s;
+        }
+        #title-overlay h1 { font-size: 22px; font-weight: normal; letter-spacing: 4px; color: #b0b0b0; margin-bottom: 4px; }
+        #title-overlay .subtitle { font-size: 12px; color: #555; letter-spacing: 3px; font-style: italic; margin-bottom: 20px; }
+        #title-overlay .title-hint { font-size: 13px; color: #555; letter-spacing: 2px; margin-bottom: 20px; }
+        #title-overlay .memory-btn {
+            background: transparent; border: 1px solid #4a3a3a; color: #8a7a6a;
+            padding: 8px 20px; font-size: 13px; font-family: inherit;
+            cursor: pointer; letter-spacing: 3px; transition: all 0.2s; margin-top: 8px;
+        }
+        #title-overlay .memory-btn:hover { border-color: #8a6a4a; color: #c0a080; }
+        .divider { text-align: center; color: #444; margin: 20px 0; letter-spacing: 6px; font-size: 12px; }
+        #ng-badge { position: fixed; top: 16px; right: 24px; color: #5a3a3a; font-size: 11px; letter-spacing: 2px; z-index: 5; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="title-overlay">
+        <h1>沉眠的终结</h1>
+        <p class="subtitle">Slumber's End</p>
+        <p class="title-hint" id="start-hint">点击任意位置开始</p>
+        <button class="memory-btn" id="memory-btn" style="display:none;">记忆碎片</button>
+    </div>
+    <div id="text-area"></div>
+    <div id="choices-area"></div>
+    <div id="continue-hint" style="display:none;">▼ 点击继续</div>
+</div>
+
+<div id="ng-badge">二周目</div>
+
+<script>
+(function(){
+var textArea = document.getElementById('text-area');
+var choicesArea = document.getElementById('choices-area');
+var continueHint = document.getElementById('continue-hint');
+var titleOverlay = document.getElementById('title-overlay');
+var memoryBtn = document.getElementById('memory-btn');
+var startHint = document.getElementById('start-hint');
+var ngBadge = document.getElementById('ng-badge');
+
+var curIdx = 0, curChunk = [], cb = null, curNgArr = null;
+var isNG = localStorage.getItem('somnus_ngplus')==='true';
+if(isNG) ngBadge.style.display='block';
+
+var allRoutes = ['A','B1','B2','C1','C2','D'];
+var routeNames = {
+    'A':'A. 直接质问', 'B1':'B1. 用力推开', 'B2':'B2. 妥协抱住',
+    'C1':'C1. 继续装傻', 'C2':'C2. 崩溃大哭', 'D':'D. 尝一口'
+};
+var routeBranch = {A:'A', B1:'B', B2:'B', C1:'C', C2:'C', D:'D'};
+var routeEnding = {
+    'A':'未完成的质问', 'B1':'困兽的怀抱', 'B2':'困兽的怀抱',
+    'C1':'温柔的囚笼', 'C2':'温柔的囚笼', 'D':'镜像'
+};
+
+// ==================== 实物文本 ====================
+var artifacts = {
+    'A': {title:'一张压在沙发垫下的泛黄收据', body:'"全息沉浸式景观模拟器V3.0。备注：请务必拆除所有外部物理锁扣，确保从内部无法强制断电。"'},
+    'B1':{title:'一本边缘磨损的旧日记', body:'"今天，那双眼睛看着门外发呆了很久。如果我表现得再痛一点，再可怜一点，那道目光是不是就会重新落回我身上？"'},
+    'B2':{title:'冲锋衣内侧口袋里的一张便签', body:'"今天那个主动的拥抱，持续了十三秒。比上个月多了一秒。只要我继续流血，这份依赖就会一直属于我。"'},
+    'C1':{title:'医药箱底部的进货清单', body:'"医用纱布100卷，生理盐水50瓶。备注：包扎的手法越来越熟练了，下次可以试着\'伤\'在离心脏更近的地方。"'},
+    'C2':{title:'一张揉碎的废弃草稿纸', body:'"如果谎言被发现了，如果眼泪掉下来了……没关系，我有足够的时间和耐心，去重塑这个只有我们两个人的世界。"'},
+    'D': {title:'糖浆瓶上被撕掉一半的标签', body:'"特级食用糖浆（草莓风味）。从小就怕苦的人，如果一定要见血，至少尝到的该是甜味。"'}
+};
+
+// ==================== 碎片文本（按路线对应） ====================
+var fragmentsByRoute = {
+    'A': '碎片5：那面伪装成窗景的全息投影墙，是我亲手安装的。每次看着那双眼睛充满恐惧地望向窗外，我的心脏就像被狠狠攥紧。但我不敢关掉它。我怕光亮照进来，怕外面车水马龙的街道暴露无遗，怕那个残忍的真相被发现……我才是那个亲手打造地狱的怪物。',
+    'B1':'碎片4：某人睡着的时候总是很安静。我习惯坐在床边，借着全息投影的微光，在心里默数那平稳的呼吸声。有时候我会忍不住想，如果这场梦永远不醒该多好。只要这孩子还在我触手可及的地方，哪怕世界真的毁灭了，我也无所谓。',
+    'B2':'碎片2：每次"重伤"回家前，我都会在玄关的镜子前检查很久。糖浆的颜色够不够深？衣服破损的角度对不对？我必须做到完美无缺，因为那是换取那个拥抱的唯一筹码。',
+    'C1':'碎片1：末日爆发的那天，我在门外站了整整两个小时。我把红酒倒在身上，用刀划破衣服，练习着最虚弱的呼吸频率。推开门的那一刻，我其实比门里的人还要害怕——怕谎言被识破，更怕换不来那份心疼。',
+    'C2':'碎片6：我不敢想象失去这一切的样子。哪怕只是脑海里闪过离别的念头，都会让我嫉妒得发疯。我用谎言筑起了一座温室，把最珍视的人养在里面。我早就没有退路了，我只能一直骗下去，直到死亡降临。',
+    'D': '碎片3：调配那些"血浆"的时候，我特意选了最甜的草莓糖浆。在连干净的水都成了奢望的"末日"里，这简直是个致命的破绽。但我控制不住……如果一定要见血，我舍不得让那张嘴尝到一丝一毫的苦涩。'
+};
+
+// 全收集后深层记忆（去碎片标签）
+var deepMemoryFragments = [
+    fragmentsByRoute['C1'].replace('碎片1：',''),
+    fragmentsByRoute['B2'].replace('碎片2：',''),
+    fragmentsByRoute['D'].replace('碎片3：',''),
+    fragmentsByRoute['B1'].replace('碎片4：',''),
+    fragmentsByRoute['A'].replace('碎片5：',''),
+    fragmentsByRoute['C2'].replace('碎片6：','')
+];
+
+// ==================== 信 ====================
+var letterSalutation = '亲爱的你：';
+var letterBodyParagraphs = [
+    '见字如晤。',
+    '当你看到这封信的时候，也许所有的秘密都已经藏不住了。',
+    '对不起，我骗了你。外面没有丧尸，没有末日，世界依然在照常运转。唯一坏掉的，只有我。',
+    '还记得三年前吗？你总是看着窗外，说着想去更远的地方，想认识更多的人。每次听到那些话，我都会整夜整夜地睡不着。我看着你像一只即将振翅的鸟，而我只是一个只能站在原地仰望的可悲影子。',
+    '我生病了，病得很重。这种病叫作"不能没有你"。',
+    '所以我自私地关上了门，拉上了窗帘，编造了一个可怕的废土。我用谎言，换来了你全心全意的依赖。看着你每天为我担惊受怕，看着你只对我一个人笑，我知道这很卑劣，但我真的……太幸福了。',
+    '我从未想过伤害你，我只是想把你藏起来，藏在一个只有我能看到的地方。',
+    '我不奢求原谅。如果觉得恨，就尽情地恨我吧。但请你相信，这三年来，除了那个荒谬的末日，我对你的每一分心疼、每一次拥抱、每一句"我爱你"，都是真的。',
+    '我用尽了所有的力气去爱你，哪怕这份爱已经扭曲成了牢笼。'
+];
+var letterSignature = '有罪的、真诚的、亲爱的\n哥哥。';
+
+// ==================== 觉醒 ====================
+var theAwakening = '我放下信纸，安静地看着窗外那片虚假的、灰蒙蒙的天空。\n原来，这三年来被困在笼子里的，从来都不只我一个。\n谎言建起了一座避难所，而我留在这里，成了这座牢笼里唯一的救赎。';
+
+function clr(){ textArea.innerHTML=''; }
+function ap(t,ng){
+    var p=document.createElement('p');
+    p.textContent=t;
+    if(ng) p.className='ng-plus';
+    textArea.appendChild(p);
+    textArea.scrollTop=textArea.scrollHeight;
+}
+function apClass(t,cls){
+    var p=document.createElement('p');
+    p.textContent=t;
+    if(cls) p.className=cls;
+    textArea.appendChild(p);
+    textArea.scrollTop=textArea.scrollHeight;
+}
+function ad(){
+    var d=document.createElement('div');
+    d.className='divider'; d.textContent='· · ·';
+    textArea.appendChild(d);
+    textArea.scrollTop=textArea.scrollHeight;
+}
+function hc(){ choicesArea.innerHTML=''; }
+function sc(o){
+    choicesArea.innerHTML='';
+    o.forEach(function(x){
+        var b=document.createElement('button');
+        b.textContent=x.label;
+        if(x.cls) b.className=x.cls;
+        b.addEventListener('click',x.action);
+        choicesArea.appendChild(b);
+    });
+}
+function sh(cb){
+    continueHint.style.display='block';
+    continueHint.textContent = isNG ? '▼ 点击继续（快速模式）' : '▼ 点击继续';
+    continueHint.onclick=function(){ continueHint.style.display='none'; if(cb) cb(); };
+}
+function hh(){ continueHint.style.display='none'; }
+
+function getUnlocked(){ return JSON.parse(localStorage.getItem('somnus_routes')||'[]'); }
+function unlockRoute(id){
+    var routes = getUnlocked();
+    if(routes.indexOf(id)===-1){
+        routes.push(id);
+        localStorage.setItem('somnus_routes',JSON.stringify(routes));
+    }
+}
+function isUnlocked(id){ return getUnlocked().indexOf(id)!==-1; }
+function allUnlocked(){ return allRoutes.every(function(r){ return isUnlocked(r); }); }
+function markNG(){ if(!isNG){ isNG=true; localStorage.setItem('somnus_ngplus','true'); ngBadge.style.display='block'; } }
+
+// ==================== 播放逻辑 ====================
+function playChunk(arr, callback, ngArr){
+    hc(); hh();
+    if(isNG){
+        clr();
+        for(var i=0;i<arr.length;i++){
+            if(arr[i]==='---'){ ad(); }
+            else { ap(arr[i]); }
+            if(ngArr && ngArr[i]){ ap(ngArr[i], true); }
+        }
+        sh(function(){ if(callback) callback(); });
+    } else {
+        curChunk=arr; curIdx=0; cb=callback||null; curNgArr=ngArr||null;
+        nx();
+    }
+}
+function nx(){
+    if(curIdx<curChunk.length){
+        var item=curChunk[curIdx];
+        var ngItem=(curNgArr && curNgArr[curIdx])?curNgArr[curIdx]:null;
+        curIdx++;
+        if(item==='---'){ ad(); if(ngItem) ap(ngItem,true); }
+        else { ap(item); if(ngItem) ap(ngItem,true); }
+        sh(function(){ nx(); });
+    } else {
+        hh(); if(cb){ var c=cb; cb=null; c(); }
+    }
+}
+
+// ==================== 路线图 ====================
+function buildRouteMapText(){
+    var lines = [];
+    lines.push('▸ 发现假血\n');
+    var topRoutes = ['A','B','C','D'];
+    var topLabels = {A:'直接质问', B:'沉默后退', C:'假装没发现', D:'尝一口'};
+    topRoutes.forEach(function(r){
+        var marker = '○';
+        if(r==='A' && isUnlocked('A')) marker='●';
+        if(r==='B' && (isUnlocked('B1')||isUnlocked('B2'))) marker='●';
+        if(r==='C' && (isUnlocked('C1')||isUnlocked('C2'))) marker='●';
+        if(r==='D' && isUnlocked('D')) marker='●';
+        lines.push('  '+marker+' '+r+'. '+topLabels[r]+' → '+routeEnding[r]);
+        if(r==='B'){
+            ['B1','B2'].forEach(function(sub){
+                var sm = isUnlocked(sub) ? '●' : '○';
+                lines.push('     '+sm+' '+routeNames[sub]+' → '+routeEnding[sub]);
+            });
+        }
+        if(r==='C'){
+            ['C1','C2'].forEach(function(sub){
+                var sm = isUnlocked(sub) ? '●' : '○';
+                lines.push('     '+sm+' '+routeNames[sub]+' → '+routeEnding[sub]);
+            });
+        }
+    });
+    lines.push('');
+    lines.push('已收集：'+getUnlocked().length+' / 6');
+    if(allUnlocked()){
+        lines.push('');
+        lines.push('◆ 全部碎片已收集 ◆');
+    }
+    return lines.join('\n');
+}
+
+// ==================== 显示实物 → 碎片 ====================
+function showArtifact(routeId){
+    hh(); hc(); clr();
+    titleOverlay.style.display = 'none';
+    var art = artifacts[routeId];
+    apClass('实物：' + art.title, 'artifact-title');
+    apClass(art.body, 'artifact-body');
+    ad();
+    sc([
+        {
+            label: '翻开碎片 →',
+            cls: 'fragment-btn',
+            action: function(){ showFragment(routeId); }
+        },
+        {
+            label: '← 返回路线图',
+            action: function(){ showRouteMap(); }
+        }
+    ]);
+}
+
+function showFragment(routeId){
+    hc(); clr();
+    apClass('碎片', 'artifact-title');
+    apClass(fragmentsByRoute[routeId], 'fragment-body');
+    ad();
+    sc([{label:'← 返回路线图',action:function(){showRouteMap();}}]);
+}
+
+// ==================== 深层记忆（全收集后） ====================
+function showDeepMemory(){
+    hh(); hc(); clr();
+    titleOverlay.style.display = 'none';
+    apClass('深层记忆', 'artifact-title');
+    ad();
+    for(var i=0;i<deepMemoryFragments.length;i++){
+        apClass('碎片'+(i+1)+'：'+deepMemoryFragments[i], 'fragment-body');
+    }
+    ad();
+    sc([{label:'继续阅读 →',cls:'deep-btn',action:function(){showLetter();}}]);
+}
+
+function showLetter(){
+    hc(); clr();
+    apClass('一封信', 'artifact-title');
+    
+    // 称呼（不缩进）
+    var sal = document.createElement('p');
+    sal.textContent = letterSalutation;
+    sal.className = 'letter-salutation';
+    textArea.appendChild(sal);
+    
+    // 正文每段首行缩进
+    letterBodyParagraphs.forEach(function(para){
+        var p = document.createElement('p');
+        p.textContent = para;
+        p.className = 'letter-body';
+        textArea.appendChild(p);
+    });
+    
+    // 署名右对齐
+    var sig = document.createElement('p');
+    sig.textContent = letterSignature;
+    sig.className = 'letter-signature';
+    textArea.appendChild(sig);
+    
+    textArea.scrollTop = textArea.scrollHeight;
+    ad();
+    sc([{label:'继续阅读 →',cls:'deep-btn',action:function(){showAwakening();}}]);
+}
+
+function showAwakening(){
+    hc(); clr();
+    apClass('觉醒', 'artifact-title');
+    apClass(theAwakening, 'awakening');
+    ad();
+    sc([{label:'← 返回路线图',action:function(){showRouteMap();}}]);
+}
+
+function showRouteMap(){
+    hh(); hc(); clr();
+    titleOverlay.style.display = 'none';
+    var text = buildRouteMapText();
+    ap(text);
+    
+    var unlocked = getUnlocked();
+    var buttons = [];
+    
+    unlocked.forEach(function(id){
+        buttons.push({
+            label: '重读结局：'+routeNames[id]+' → '+routeEnding[id],
+            action: function(){ replayEnding(id); }
+        });
+        buttons.push({
+            label: '查看实物：'+artifacts[id].title,
+            cls: 'small-btn',
+            action: function(){ showArtifact(id); }
+        });
+    });
+    
+    if(allUnlocked()){
+        buttons.push({
+            label: '◆ 深层记忆 ◆',
+            cls: 'deep-btn',
+            action: function(){ showDeepMemory(); }
+        });
+    }
+    
+    buttons.push({label:'← 返回标题',action:function(){restartGame();}});
+    sc(buttons);
+}
+
+function replayEnding(routeId){
+    var branch = routeBranch[routeId];
+    clr(); hc(); hh();
+    titleOverlay.style.display = 'none';
+    playEndingChunk(branch);
+    setTimeout(function(){
+        hc();
+        sc([{label:'← 返回路线图',action:function(){showRouteMap();}}]);
+    },1000);
+}
+
+// ==================== 游戏流程 ====================
+function startGame(){
+    titleOverlay.style.opacity='0';
+    setTimeout(function(){ titleOverlay.style.display='none'; clr(); playIntro(); },800);
+}
+
+function playIntro(){
+    playChunk([
+        '我永远不会忘记末日开始的那一天。',
+        '哥哥满身是血地打开了家门，确认我在家之后，立马回身反锁住了门。',
+        '他抱着我，仔仔细细检查了一遍，确定我没受伤，才长出一口气，晕倒在我怀里。',
+        '我手忙脚乱地照顾了他三天，期间门外诡异的低吼和时不时传来的尖叫声使我如临大敌。',
+        '到底发生了什么？',
+        '我不敢开门。',
+        '我只能一遍遍用湿毛巾擦拭他滚烫的额头。',
+        '所幸，第四天，哥哥最终还是醒了过来。',
+        '他握着我的手，苍白虚弱，但神情很认真。',
+        '他说，外面已经——',
+        '---',
+        '三年后。'
+    ],function(){ enterDailyScene(); });
+}
+
+function enterDailyScene(){
+    var ng=isNG?[
+        '【仔细想想，这三年来，窗外从来没有下过一滴雨，也没有飞过一只鸟。那片灰蒙蒙的天空，就像是一张永远不会褪色的、死气沉沉的壁纸。】',
+        null,
+        '【那些钉在窗户上的厚重木板，钉眼全都是朝内的。他防的根本不是外面的怪物闯进来，而是怕我透过缝隙，看到外面的世界。】',
+        '【我后来才意识到，那些罐头上的生产日期，有些是去年的。末日三年前就爆发了，去年生产的罐头，是谁放在货架上的？】',
+        '【现在回想起来，那根本不是受伤的眼神。那是一种冰冷的审视——就像猎人看着一只试图用爪子试探牢笼边缘的猎物。】',
+        null,null,null,null,null,null,
+        '【——奇怪。为什么每次哥哥受伤，都恰好在我快要忍不住想出门的时候？】',
+        null
+    ]:null;
+    playChunk([
+        '窗外的天空永远是那种灰蒙蒙的颜色。',
+        '我只敢躲在厚重的窗帘后，透过窗帘的缝隙窥探窗外的世界。',
+        '末日开始的第一个月内，我们用家里所能找到的所有材料加固了每一扇窗。',
+        '家里的物资还够我们用很久，多亏哥哥每周都出去收集。',
+        '起初我也想去帮忙，可哥哥总是用一种很受伤的眼神盯着我……好像我一出门，就会让他觉得自己不被信任。',
+        '所以我只能一次又一次，提心吊胆地在家里等待哥哥。',
+        '---',
+        '今天，哥哥又出去找物资了。',
+        '他说日落之前回来。',
+        '但现在，太阳已经落山了。',
+        '窗外难以言喻的恶心天色仿佛在嘲笑我的懦弱。',
+        '我不能再犹豫了。',
+        '正当我穿上鞋子，准备出门去找哥哥时——',
+        '门突然被推开了。'
+    ],function(){ enterBrotherReturns(); },ng);
+}
+
+function enterBrotherReturns(){
+    var ng=isNG?[
+        null,
+        '【真正的血迹干涸后应该会发黑发硬。可他衣服上的血，无论过了多久，永远都是那种鲜艳欲滴的、刺眼的红。】',
+        null,
+        '【变异种。他每次都这么说。可我从未在窗外看到过任何生物的轮廓。那些低吼和尖叫，会不会只是一段循环播放的录音？】'
+    ]:null;
+    playChunk([
+        '哥哥捂着腹部，踉踉跄跄地跌进玄关。',
+        '冲锋衣上全是大片大片刺眼的血迹。',
+        '他脸色苍白，却还强撑着对我扯出一个安抚的虚弱微笑：',
+        '"别哭……哥哥没事，只是遇到了一只变异种，不小心被抓了一下……"'
+    ],function(){ enterTreatmentScene(); },ng);
+}
+
+function enterTreatmentScene(){
+    var ng=isNG?[
+        null,null,null,null,null,null,null,
+        '【在连干净的水都成了奢望的末日里，他去哪里弄来这么昂贵的红酒？甚至……还有闲情逸致往里面加糖浆？】',
+        null,
+        '【上个月他说肩膀被咬掉了一块肉，上上个月他说腹部被贯穿。可是现在，这具身体上光洁如新，连一道旧疤痕都没有。】',
+        null,null,null
+    ]:null;
+    playChunk([
+        '我哭得连视线都模糊了，双手颤抖着拿过急救箱里的医用剪刀。',
+        '"哥，你忍着点……"我哽咽着，小心翼翼地剪开他腹部那件破损的冲锋衣。',
+        '衣服被鲜血浸透，黏糊糊地贴在皮肤上。我深吸了一口气，拿起沾了生理盐水的纱布，准备替他清理那道他口中"深可见骨"的伤口。',
+        '然而，当我的纱布按在他伤口上的那一刻——',
+        '我愣住了。',
+        '---',
+        '没有血肉模糊的触感，也没有刺鼻的血腥味。',
+        '取而代之的，是一股带着淡淡甜味的红酒香气，甚至还夹杂着一点食用糖浆的味道。',
+        '我颤抖着手，用纱布在他那道"致命伤"上轻轻擦了一下。',
+        '红色的"血液"被轻松抹去，露出了下面完好无损、甚至连一道红印都没有的健康皮肤。',
+        '我呆呆地看着手里沾满红色糖浆的纱布，又看了看他平坦结实的腹部。',
+        '大脑"嗡"地一声，这三年来所有的违和感在这一刻串联成线。',
+        '假的……伤是假的，血是假的……那末日呢？！'
+    ],function(){ showCoreChoices(); },ng);
+}
+
+function showCoreChoices(){
+    hh(); ad(); ap('我该怎么办？');
+    sc([
+        {label:'A. 直接质问',action:function(){branchA();}},
+        {label:'B. 沉默后退',action:function(){branchB();}},
+        {label:'C. 假装没发现',action:function(){branchC();}},
+        {label:'D. ……尝一口？',action:function(){branchD();}}
+    ]);
+}
+
+function branchA(){ hc();
+    playChunk([
+        '"……哥，你解释一下，伤呢？"',
+        '---',
+        '听到我的质问，哥哥脸上的虚弱瞬间消失了。',
+        '他无奈地叹了口气，慢条斯理地坐直身体，随手扯掉沾着假血的破衣服。',
+        '他走下沙发，自然地单膝跪在我面前，用干净的手背轻轻擦去我脸上的眼泪。',
+        '"哎呀……买到劣质血浆了呢，居然被你发现了。"',
+        '他不仅没有慌乱，反而微微垂下眼眸，用那种委屈又无辜的语气轻声呢喃：',
+        '"别生哥哥的气好不好？哥哥只是太喜欢看你为我掉眼泪的样子了……"',
+        '"你每次一边哭一边心疼我的模样，真的好美，美得让哥哥心都要碎了，却又开心得快要发疯。"'
+    ],function(){ branchA_Continue(); });
+}
+function branchA_Continue(){
+    playChunk([
+        '"所以……末日是假的？"我听见自己的声音在发抖，"这三年，外面的丧尸，全都是假的？"',
+        '【哥哥轻轻叹了口气，像是在包容一个无理取闹的孩子】',
+        '"怎么会是假的呢？"他温柔地将我脸颊边的碎发别到耳后，"外面的世界那么脏，那么危险，到处都是会伤害你、抢走你的人……对哥哥来说，那比丧尸还要可怕一万倍啊。"',
+        '他垂下眼睫，语气里满是受伤的委屈："哥哥每天都要在外面处理那些碍眼的东西，还要费尽心思维护这个只属于我们的干净世界，真的很累的。你不仅不心疼哥哥，还要为了那些无关紧要的真相怪我吗？"',
+        '我看着他那张无辜的脸，浑身发冷："那外面……到底是什么样的？"',
+        '"外面啊……"他轻笑了一声，眼神瞬间冷得像冰，"外面什么都没有。只有哥哥这里，才是你唯一的家。"'
+    ],function(){ showEnding('A','A'); });
+}
+
+function branchB(){ hc();
+    playChunk([
+        '我吓得跌坐在地毯上，浑身发抖地往后退去。',
+        '---',
+        '哥哥看着我惊恐后退的样子，眼底闪过一丝病态的愉悦。',
+        '但脸上却立刻换上了一副受伤的破碎表情。',
+        '他没有站起来，而是像一只被遗弃的大型犬一样，捂着腹部，艰难地朝我爬过来。',
+        '他伸手抓住了我的脚踝。',
+        '"别躲开……是不是嫌弃哥哥没用了？"',
+        '他仰起头，眼眶红得滴血，声音里带着浓浓的哭腔和委屈：',
+        '"伤口好像又裂开了，哥哥好疼……"',
+        '"外面那么多怪物我都不怕，可是你后退的动作，真的把哥哥的心都伤透了。"',
+        '"快过来抱抱我，好不好？"'
+    ],function(){ showBranchBChoices(); });
+}
+function showBranchBChoices(){ hh(); ad();
+    sc([
+        {label:'用力推开他："你放开我！骗子！"',action:function(){branchB1();}},
+        {label:'妥协抱住他："哥……"',action:function(){branchB2();}}
+    ]);
+}
+function branchB1(){ hc();
+    playChunk([
+        '我拼命摇头，用力想要蹬开他的手："你放开我！骗子……你是个骗子！"',
+        '【哥哥被我踹到了肩膀，但他不仅没有松手，反而顺势将脸颊贴在了我的脚背上】',
+        '"好痛……"他眼里的泪水大滴大滴地砸在我的脚踝上，烫得惊人，"你踹得哥哥好痛啊。可是没关系，只要你能消气，就算把哥哥踹死在这里，哥哥也不会松手的。"',
+        '他抬起头，用那种破碎到近乎绝望的眼神望着我："因为哥哥只有你了啊……你如果不要我了，哥哥就真的活不下去了。"'
+    ],function(){ showEnding('B','B1'); });
+}
+function branchB2(){ hc();
+    playChunk([
+        '看着他眼眶通红、摇摇欲坠的样子，我大脑一片空白。身体比理智先一步做出了反应，我颤抖着伸出手，将他抱进了怀里。',
+        '"哥……"我哭着抱紧他。',
+        '【哥哥瞬间将脸埋进我的颈窝，像个终于得到糖果的贪婪孩童】',
+        '"我就知道，你最心疼哥哥了。"他破涕为笑，温热的呼吸打在我的皮肤上，激起一阵战栗。',
+        '他温柔地回抱住我，双臂却像铁箍一样越收越紧，勒得我几乎喘不过气。',
+        '"既然抱了哥哥，以后就再也不能松开了哦。"他轻柔地咬了一下我的耳垂，"不然，哥哥真的会死给你看的。"'
+    ],function(){ showEnding('B','B2'); });
+}
+
+function branchC(){ hc();
+    playChunk([
+        '我的手抖得像筛糠。',
+        '但我还是低着头，拿着纱布，一圈一圈地缠绕在他完好无损的腹部上。',
+        '我不知道自己在做什么。他已经没有伤口了，纱布绕上去也毫无意义。',
+        '可我低着头只管缠，一圈又一圈，仿佛只要不停手，刚才看到的一切就可以不存在。',
+        '---',
+        '哥哥嘴角的笑意越来越深，几乎要咧到耳根。',
+        '他温柔地伸出手，抚摸着我因为恐惧而布满冷汗的后颈。',
+        '"包扎得真好。有你在身边，哥哥一点都不觉得疼了呢。"',
+        '他故意低下头，冰冷的嘴唇贴着我的耳廓，用只有我们两个人能听见的声音轻笑：',
+        '"既然这么心疼哥哥……那以后，哥哥每天都受一次伤回来让你包扎，好不好？"'
+    ],function(){ showBranchCChoices(); });
+}
+function showBranchCChoices(){ hh(); ad();
+    sc([
+        {label:'继续装傻："好……只要哥哥平安就好。"',action:function(){branchC1();}},
+        {label:'崩溃大哭："别说了！你明明一点伤都没有！"',action:function(){branchC2();}}
+    ]);
+}
+function branchC1(){ hc();
+    playChunk([
+        '我死死咬住下唇，强迫自己挤出一个僵硬的微笑："好啊……只要哥哥能平安回来，受一点小伤……也没关系的。"',
+        '【哥哥愉悦地眯起了眼睛，像是在欣赏一件完美的艺术品】',
+        '"真乖。"他自然地靠进我怀里，任由我用纱布将他完好的腹部缠成一个滑稽的茧，"那明天，哥哥伤在腿上好不好？这样就可以理直气壮地让你喂我吃饭了。"',
+        '他顿了顿，语气突然变得幽暗："只要你一直这么乖，哥哥保证，外面的\'丧尸\'永远都不会咬到你。"'
+    ],function(){ showEnding('C','C1'); });
+}
+function branchC2(){ hc();
+    playChunk([
+        '手里的纱布突然掉在地上。我再也演不下去了，崩溃地捂住脸大哭起来："别说了……求求你别说了！你明明一点伤都没有！"',
+        '【哥哥嘴角的笑意瞬间收敛，换上了一副受伤的无辜表情】',
+        '"怎么哭了？"他心疼地捧起我的脸，用拇指一点点擦去我的眼泪，"哥哥只是想让你多关心我一点，难道这也有错吗？"',
+        '他叹了口气，语气里满是委屈的责备："你总是这么任性，连配合哥哥玩个小游戏都不愿意。看来，哥哥只能换一种方法，慢慢教会你怎么做一个听话的好孩子了。"'
+    ],function(){ showEnding('C','C2'); });
+}
+
+function branchD(){ hc();
+    playChunk([
+        '我用手指沾了一点假血，放进嘴里。',
+        '甜的。',
+        '我看着他愣住的表情，忍不住笑了出来：',
+        '"这血挺甜的。"',
+        '---',
+        '哥哥明显愣住了。',
+        '随后，他眼底的疯狂几乎凝成实质。',
+        '他猛地扣住我的后脑勺，强势地吻了上来，将我嘴唇上残留的糖浆舔舐得干干净净。',
+        '"原来你喜欢甜的啊……"',
+        '他喘息着退开一点，眼神危险又痴迷地盯着我：',
+        '"早说嘛，害得哥哥演得这么辛苦。"',
+        '"既然你这么聪明，那作为奖励……"',
+        '"今晚哥哥让你尝点更甜的东西，好不好？"'
+    ],function(){ branchD_Continue(); });
+}
+function branchD_Continue(){
+    playChunk([
+        '我看着他眼底翻涌的疯狂，不仅没有躲开，反而伸手勾住了他的脖子。',
+        '"好啊。"我直视着他的眼睛，指腹轻轻摩挲着他唇边残留的红晕，"不过，既然哥哥演了三年的戏，那今晚的剧本，是不是该换我来写了？"',
+        '【哥哥的瞳孔骤然收缩，他显然没料到我会是这种反应】',
+        '他罕见地怔住了，随后，喉咙里溢出一阵低沉的愉悦闷笑。',
+        '"原来……你是个小疯子啊？怎么不早点告诉我……害我等得好辛苦呢。"他迷恋地用鼻尖蹭着我的鼻尖，眼神里闪烁着前所未有的狂热，"好，都听你的。只要你不离开我，你想怎么玩，哥哥都陪你。"'
+    ],function(){ showEnding('D','D'); });
+}
+
+// ==================== 结局 ====================
+function showEnding(branch, routeId){
+    hc(); hh();
+    unlockRoute(routeId);
+    markNG();
+    setTimeout(function(){ ad(); playEndingChunk(branch); },600);
+}
+function playEndingChunk(branch){
+    var chunks=[];
+    if(branch==='A'){
+        chunks=[
+            '【结局：未完成的质问】','---',
+            '他还跪在我面前，用那双曾经让我无比信赖的眼睛望着我。',
+            '我没有回答他。',
+            '我转过头，看向厚重窗帘后那片永远灰蒙蒙的天空。那是我看了三年的末日，是我恐惧了三年的地狱。',
+            '而现在，我才终于意识到——那根本不是窗外。',
+            '那只是一整面伪装成窗景的全息投影墙。',
+            '"哥。"我听见自己平静的声音在客厅里响起，"外面的天太暗了，我看着眼睛疼。"',
+            '他微微一愣，随即温柔地笑了起来："好，哥哥这就去关掉。"',
+            '他站起身，走到玄关的控制面板前，按下了某个开关。',
+            '"唰"的一声，窗外的废土、丧尸、灰暗的天空瞬间消失了。取而代之的，是一片阔别已久的夜空，以及远处隐约可见的城市轮廓。',
+            '月光洒在客厅的地毯上，照亮了那件被剪破的、沾满糖浆的冲锋衣。',
+            '我安静地坐在沙发上，看着这真实的、和平的世界。',
+            '他走回来，从背后自然地环住我的肩膀，下巴抵在我的头顶。',
+            '"看，外面的光污染多刺眼啊，还是拉上窗帘吧。"他轻声呢喃。',
+            '"嗯。"我闭上眼睛，任由他将我拖入那片永远不会醒来的黑暗里。',
+            '没有丧尸，没有怪物。',
+            '只有他。',
+            '和他为我编造的整个末日。'
+        ];
+    } else if(branch==='B'){
+        chunks=[
+            '【结局：困兽的怀抱】','---',
+            '我的脚踝还被他攥在手心里。',
+            '他的体温从掌心传过来，和以前一样温暖。',
+            '我明明知道他在骗我。可是当他用哭腔说"抱抱我"的时候——我的身体，还是不由自主地想往前靠。',
+            '我最终还是跪坐在地毯上，将他紧紧抱进怀里。',
+            '他把脸埋在我的颈窝里，肩膀剧烈地耸动着，温热的眼泪大滴大滴地砸在我的锁骨上。我不知道他是在真哭，还是在为自己精湛的演技而战栗。',
+            '我轻轻拍着他的背，就像这三年来，每次雷雨夜他哄我入睡时那样。',
+            '我知道外面没有末日。只要我推开那扇门，我就能回到正常的人类社会。',
+            '可是，我已经在这个被他精心打造的温室里待了三年。我习惯了他每天准备好的罐头，习惯了他无微不至的照顾，甚至习惯了那种对外界的恐惧。',
+            '外面的世界真的安全吗？没有哥哥的保护，我还能活下去吗？',
+            '"别离开我……"他在我怀里哽咽着祈求。',
+            '"我不走。"我听见自己麻木的声音。',
+            '我像一只被拔了牙和爪子的野兽，心甘情愿地缩回了猎人温暖的笼子里。在这个荒谬的共生关系中，我已经分不清，到底是他离不开我，还是我离不开他。'
+        ];
+    } else if(branch==='C'){
+        chunks=[
+            '【结局：温柔的囚笼】','---',
+            '纱布缠好了。',
+            '他完好的腹部被我包得严严实实，像一个荒谬的茧。',
+            '他轻轻摸着我的后颈，哼起了小时候哄我睡觉的曲子。',
+            '我闭上眼睛，乖巧地靠在他怀里，听着他平稳的心跳声。',
+            '那一晚，我们谁也没有再提那股甜腻的红酒味，也没有提外面那片灰蒙蒙的天空。我们就像两个敬业的演员，在各自的剧本里卖力地演出着。',
+            '第二天清晨，哥哥像往常一样，穿上了一件崭新的冲锋衣。',
+            '"你乖乖在家等我，好不好？哥哥去给你找你最爱吃的黄桃罐头。"他温柔地吻了吻我的额头，转身走出了大门。',
+            '随着大门落锁的"咔哒"声，别墅里再次陷入了死寂。',
+            '我走到窗前，躲在厚重的窗帘后，透过缝隙看着他走向那片虚假的废土。他的背影挺拔而从容，哪里有半点在末日中求生的狼狈。',
+            '我静静地看了一会儿，然后转过身，走到客厅的茶几旁。',
+            '我打开急救箱，拿出医用剪刀，又拆开了一卷崭新的纱布，整整齐齐地摆放在桌面上。',
+            '也许以后，我会发现更多谎言。',
+            '但现在，我不敢睁眼。',
+            '我只需要坐在这里，等待日落，等待我的哥哥带着一身"重伤"回来，然后继续这场永远不会结束的包扎游戏。'
+        ];
+    } else if(branch==='D'){
+        chunks=[
+            '【结局：镜像】','---',
+            '他看着我，我看着他的嘴角沾着我的糖浆。',
+            '我终于明白了一件事：这三年，他在等我发现。而我在等的，或许也不是什么真相。',
+            '——是时候承认了，我也不是什么正常人。',
+            '我看着他眼底那团几乎要将我燃烧殆尽的疯狂，突然觉得这三年的担惊受怕简直是一场无聊的闹剧。',
+            '我伸手拽住他的衣领，迫使他低下头，凑到我的唇边。',
+            '"哥。"我看着他那双因为兴奋而微微放大的瞳孔，嘴角勾起一抹恶劣的笑意，"既然外面没有丧尸，那我们是不是不用再躲在屋子里了？"',
+            '他愣了一下，似乎没跟上我的思路："想出去？"',
+            '"不。"我摇了摇头，指尖轻轻划过他平坦的腹部，停在那块被我擦干净的皮肤上。',
+            '"我的意思是……既然不用再担心被怪物吃掉，那你是不是可以，毫无顾忌地把我关进你的世界里了？"',
+            '哥哥彻底僵住了。',
+            '他那张永远运筹帷幄、游刃有余的脸上，第一次出现了明显的错愕和空白。',
+            '但仅仅是一瞬，那份错愕就化作了足以吞噬一切的狂热。',
+            '"如你所愿，我的小疯子。"',
+            '他一把将我抱起，走向了那间永远拉着窗帘的卧室。',
+            '在这个虚假的末日里，两个真正的怪物，终于迎来了属于他们的狂欢。'
+        ];
+    }
+    var full='';
+    for(var i=0;i<chunks.length;i++){
+        if(chunks[i]==='---'){ full+='\n· · ·\n\n'; }
+        else { full+=chunks[i]+'\n\n'; }
+    }
+    var p=document.createElement('p');
+    p.textContent=full.trim();
+    p.style.whiteSpace='pre-wrap';
+    textArea.appendChild(p);
+    textArea.scrollTop=textArea.scrollHeight;
+    setTimeout(function(){
+        ad();
+        sc([{label:'重新开始',action:function(){restartGame();}}]);
+    },800);
+}
+
+function restartGame(){
+    hc(); hh(); clr();
+    var routes = getUnlocked();
+    if(routes.length>0) memoryBtn.style.display='block';
+    if(isNG) ngBadge.style.display='block';
+    titleOverlay.style.display='flex';
+    titleOverlay.style.opacity='1';
+}
+
+// ==================== 标题画面事件 ====================
+titleOverlay.addEventListener('click', function(e){
+    if(e.target === memoryBtn) return;
+    startGame();
+});
+memoryBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    showRouteMap();
+});
+
+// 初始化
+var routes = getUnlocked();
+if(routes.length>0) memoryBtn.style.display='block';
+if(isNG) ngBadge.style.display='block';
+console.log("Slumber's End — Project Somnus");
+console.log('《沉眠的终结》完整版已就绪');
+console.log('路线图系统：已解锁 '+routes.length+'/6 条路线');
+console.log(isNG ? '当前：二周目快速模式' : '当前：一周目逐段模式');
+})();
+</script>
+
+</body>
+</html>
